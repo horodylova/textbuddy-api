@@ -17,7 +17,7 @@ A Node.js server that uses OpenAI's GPT-3.5-turbo to transform formal text into 
 ### Installation
 1. Clone the repository:
 ```bash
-git clone [your-repo-url]
+git clone https://github.com/horodylova/textbuddy-api
 cd text-humanizer
 ```
 
