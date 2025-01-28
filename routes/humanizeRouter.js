@@ -1,8 +1,8 @@
 import express from "express";
-import humanizeController from "../controllers/humanizeController.js";
+import { humanizeText } from "../controllers/humanizeController.js";
 
 const router = express.Router();
 
-router.post("/", humanizeController);
+router.post("/", humanizeText);
 
 export { router as humanizeRouter };

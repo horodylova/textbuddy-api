@@ -1,16 +1,20 @@
 import axios from "axios";
-import { humanize } from "../utils/humanize";
+import { createHumanizePrompt } from "../utils/humanize.js";
+import { rateLimiter } from "../utils/rateLimiter.js";
 
-
-
-const humanizeController = async (req, res) => {
+export const humanizeText = async (req, res) => {
   const { input } = req.body;
 
-  if (!input) {
-    return res.status(400).json({ error: "Input text is required" });
+  if (!input || typeof input !== 'string') {
+    return res.status(400).json({ 
+      error: "Input text is required and must be a string" 
+    });
   }
 
   try {
+   
+    await rateLimiter.checkLimits();
+
     const response = await axios.post(
       "https://api.openai.com/v1/chat/completions",
       {
@@ -18,7 +22,7 @@ const humanizeController = async (req, res) => {
         messages: [
           {
             role: "system",
-            content: humanize(input)
+            content: createHumanizePrompt()
           },
           {
             role: "user",
@@ -36,14 +40,38 @@ const humanizeController = async (req, res) => {
       }
     );
 
-    const output = response.data.choices[0].message.content;
+    const tokens = response.data.usage.total_tokens;
+    
+  
+    await rateLimiter.logRequest(tokens);
 
-    return res.status(200).json({ transformedText: output });
+    const output = response.data.choices[0].message.content;
+    
+    return res.status(200).json({ 
+      transformedText: output,
+      original: input,
+      usage: {
+        tokens,
+        limits: rateLimiter.getStatus()
+      }
+    });
+
   } catch (error) {
-    console.error("Error with OpenAI API:", error.message);
-    return res.status(500).json({ error: "Failed to process the request" });
+    if (error.message?.includes('Rate limit')) {
+      return res.status(429).json({ 
+        error: error.message,
+        limits: rateLimiter.getStatus()
+      });
+    }
+
+    console.error("Error:", error.response?.data || error.message);
+    return res.status(error.response?.status || 500).json({ 
+      error: error.response?.data?.error?.message || "Failed to process the request" 
+    });
   }
 };
 
- 
-  export default humanizeController;
+
+export const getLimitsStatus = (req, res) => {
+  res.json(rateLimiter.getStatus());
+};
